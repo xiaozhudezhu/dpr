@@ -5,6 +5,7 @@ import (
 )
 
 func main() {
+	
 	PathExists("file")
 	os.Mkdir("file", os.ModePerm);
 	os.Create("file/1.txt");
