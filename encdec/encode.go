@@ -138,3 +138,110 @@ func DecodePart(cipherPart *base.CipherPart, sk *base.Privkey) uint16 {
 	res += int(c)
 	return uint16(res % int(q))
 }
+
+func EncodeOnCipher(plain uint16, sk *base.Privkey, p int, ci *base.Cipher) *base.Cipher {
+	q := sk.Q
+	m := len(sk.Z)
+	n := len(sk.KeyX)
+	var x, b, c uint16
+	res := new(base.Cipher)
+	k := 0
+	for k = 0; k < 10000000; k++ {
+		bk := false
+		res.IntRandFromCL(m, n, int(q), p, ci)
+		remain := plain
+		for i := 0; i < m - 1; i++ {
+			a := res.A[i]
+			x = 1
+			for j := 0; j < n; j++ {
+				x = base.MultiGF(x, base.GetHashF(res.X[i][j], sk.KeyX[j], q), q)
+			}
+			b = x
+			c = base.MultiGF(a, b, q)
+			c = base.MultiGF(c, sk.Z[i], q)
+			if(c == 0) {
+				bk = true
+				break
+			}
+			if(remain >= c) {
+				remain = uint16(int(remain) - int(c))
+			} else {
+				remain = uint16(int(remain) + int(q) - int(c))
+			}
+		}
+		if(bk) {
+			continue
+		}
+		x = 1
+		for i := 0; i < n; i++ {
+			x = base.MultiGF(x, base.GetHashF(res.X[m - 1][i], sk.KeyX[i], q), q)
+		}
+		x = base.MultiGF(x, sk.Z[m - 1], q)
+		b = x
+		if(b == 0) {
+			continue
+		}
+		c = base.DivideGF(remain, b, q)
+		if(c > 0) {
+			res.A[m - 1] = c
+			// fmt.Printf("%d, %d, %d, %d \n", remain, b, q, c)
+			break
+		}
+	}
+	// fmt.Println(k)
+	return res
+}
+
+func EncodeCompress(plain uint16, sk *base.Privkey, p int, ci *base.Cipher) *base.Cipher {
+	q := sk.Q
+	m := len(sk.Z)
+	n := len(sk.KeyX)
+	var x, b, c uint16
+	res := new(base.Cipher)
+	k := 0
+	for k = 0; k < 10000000; k++ {
+		bk := false
+		// res.IntRandFromCL(m, n, int(q), p, ci)
+		res.IntRandFromC2(m, n, int(q), p, ci)
+		remain := plain
+		for i := 0; i < m - 1; i++ {
+			a := res.A[i]
+			x = 1
+			for j := 0; j < n; j++ {
+				x = base.MultiGF(x, base.GetHashF(res.X[i][j], sk.KeyX[j], q), q)
+			}
+			b = x
+			c = base.MultiGF(a, b, q)
+			c = base.MultiGF(c, sk.Z[i], q)
+			if(c == 0) {
+				bk = true
+				break
+			}
+			if(remain >= c) {
+				remain = uint16(int(remain) - int(c))
+			} else {
+				remain = uint16(int(remain) + int(q) - int(c))
+			}
+		}
+		if(bk) {
+			continue
+		}
+		x = 1
+		for i := 0; i < n; i++ {
+			x = base.MultiGF(x, base.GetHashF(res.X[m - 1][i], sk.KeyX[i], q), q)
+		}
+		x = base.MultiGF(x, sk.Z[m - 1], q)
+		b = x
+		if(b == 0) {
+			continue
+		}
+		c = base.DivideGF(remain, b, q)
+		if(c > 0) {
+			res.A[m - 1] = c
+			// fmt.Printf("%d, %d, %d, %d \n", remain, b, q, c)
+			break
+		}
+	}
+	// fmt.Println(k)
+	return res
+}

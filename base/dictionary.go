@@ -16,15 +16,14 @@ type Dictionary struct {
 	// Computekey
 	CKey []uint16
 	Q uint16
-	// Mirrkey	
-	MKeyX []uint64
-	Z []uint16
-	Ei, Er [][]uint16
-	Ez []uint16
+	// Trans	
+	G0 [][]uint16
+	G1 [][]uint16
 }
 
 func (dict *Dictionary) Marshal() []byte {
-	res, err := asn1.Marshal(Dictionary{dict.Dims, dict.G, dict.CS, dict.CKey, dict.Q, dict.MKeyX, dict.Z, dict.Ei, dict.Er, dict.Ez})
+	res, err := asn1.Marshal(Dictionary{dict.Dims, dict.G, dict.CS, dict.CKey, dict.Q, dict.G0, dict.G1})
+	// res, err := asn1.Marshal(Dictionary{dict.Dims, dict.G, dict.CS, dict.CKey, dict.Q})
 	if err != nil {
 		fmt.Println(err)
 		return nil

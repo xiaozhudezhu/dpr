@@ -35,10 +35,68 @@ func (cipher *Cipher) GenRandZero(m int, n int, q int, p int) {
 		cipher.A = append(cipher.A, uint16(0))
 		currX := make([]uint16, 0)
 		for j := 0; j < n; j++ {
-			currX = append(currX, uint16(rand.Intn(p)))
+			currX = append(currX, 1 + uint16(rand.Intn(p - 1)))
 		}
 		cipher.X = append(cipher.X, currX)
 	}
+}
+
+func (cipher *Cipher) IntRandFromCZero2(m int, n int, q int, p int, ci *Cipher) {
+	cipher.A = make([]uint16, 0)
+	cipher.X = make([][]uint16, 0)
+	for i := 0; i < m; i++ {
+		cipher.A = append(cipher.A, 0)
+		currX := make([]uint16, 0)
+		for j := 0; j < n; j++ {
+			xij := AddGF(ci.A[i], ci.X[i][j], uint16(q))
+			xij = xij % uint16(p)
+			currX = append(currX, xij)
+		}
+		cipher.X = append(cipher.X, currX)
+	}
+}
+
+func (cipher *Cipher) IntRandFromC(m int, n int, q int, p int, ci *Cipher) {
+	cipher.A = make([]uint16, 0)
+	cipher.X = make([][]uint16, 0)
+	for i := 0; i < m; i++ {
+		cipher.A = append(cipher.A, uint16(rand.Intn(q)))
+		currX := make([]uint16, 0)
+		for j := 0; j < n; j++ {
+			currX = append(currX, ci.X[i][j])
+		}
+		cipher.X = append(cipher.X, currX)
+	}
+}
+
+func (cipher *Cipher) IntRandFromC2(m int, n int, q int, p int, ci *Cipher) {
+	cipher.A = make([]uint16, 0)
+	cipher.X = make([][]uint16, 0)
+	// ci.PrintCipher()
+	for i := 0; i < m; i++ {
+		cipher.A = append(cipher.A, uint16(rand.Intn(q)))
+		currX := make([]uint16, 0)
+		for j := 0; j < n; j++ {
+			xij := AddGF(ci.A[i], ci.X[i][j], uint16(q))
+			xij = xij % uint16(p)
+			currX = append(currX, xij)
+		}
+		cipher.X = append(cipher.X, currX)
+	}
+}
+
+func (cipher *Cipher) IntRandFromCL(m int, n int, q int, p int, ci *Cipher) {
+	cipher.A = make([]uint16, 0)
+	cipher.X = make([][]uint16, 0)
+	for i := 0; i < m; i++ {
+		cipher.A = append(cipher.A, ci.A[i])
+		currX := make([]uint16, 0)
+		for j := 0; j < n; j++ {
+			currX = append(currX, ci.X[i][j])
+		}
+		cipher.X = append(cipher.X, currX)
+	}
+	ci.A[len(ci.A) - 1] = uint16(rand.Intn(q))
 }
 
 func (cipher *Cipher) Marshal() []byte {
@@ -50,8 +108,40 @@ func (cipher *Cipher) Marshal() []byte {
 	return res
 }
 
+func (cipher *Cipher) MarshalA() []byte {
+	res, err := asn1.Marshal(cipher.A)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	return res
+}
+
+func (cipher *Cipher) MarshalAL() []byte {
+	res, err := asn1.Marshal(cipher.A[len(cipher.A) - 1])
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	return res
+}
+
 func (cipher *Cipher) Unmarshal(bin []byte) {
 	_, err := asn1.Unmarshal(bin, cipher)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (cipher *Cipher) UnmarshalA(bin []byte) {
+	_, err := asn1.Unmarshal(bin, &cipher.A)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (cipher *Cipher) UnmarshalAL(bin []byte) {
+	_, err := asn1.Unmarshal(bin, &cipher.A[len(cipher.A) - 1])
 	if err != nil {
 		fmt.Println(err)
 	}

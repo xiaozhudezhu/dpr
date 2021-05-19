@@ -1,0 +1,1 @@
+nohup ./service >> service.log &

@@ -12,14 +12,22 @@ import (
 type DictionaryTransfer struct {
 	Dims []uint16
 	G [][]uint16
+	// G0 [][]uint16
+	// G1 [][]uint16
 	ZS []Cipher
 	// Transferkey
 	TKey []uint16
 	Q uint16
+	// Mirrkey	
+	MKeyX []uint64
+	Z []uint16
+	Ei, Er [][]uint16
+	Ez []uint16
 }
 
 func (dict *DictionaryTransfer) Marshal() []byte {
-	res, err := asn1.Marshal(DictionaryTransfer{dict.Dims, dict.G, dict.ZS, dict.TKey, dict.Q})
+	// res, err := asn1.Marshal(DictionaryTransfer{dict.Dims, dict.G, dict.G0, dict.G1, dict.ZS, dict.TKey, dict.Q, dict.MKeyX, dict.Z, dict.Ei, dict.Er, dict.Ez})
+	res, err := asn1.Marshal(DictionaryTransfer{dict.Dims, dict.G, dict.ZS, dict.TKey, dict.Q, dict.MKeyX, dict.Z, dict.Ei, dict.Er, dict.Ez})
 	if err != nil {
 		fmt.Println(err)
 		return nil

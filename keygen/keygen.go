@@ -45,13 +45,16 @@ func GenPrivkey(m int, n int, q int) *base.Privkey {
 	return sk
 }
 
-func GenPrivkeyFPart(n int, q int) *base.Privkey {
+func GenPrivkeyFPart(n int, m int, q int) *base.Privkey {
 	sk := new(base.Privkey)
 	sk.Q = uint16(q)
 	sk.KeyX = make([]uint64, 0)
 	sk.Z = make([]uint16, 0)
 	for i := 0; i < n; i++ {
 		sk.KeyX = append(sk.KeyX, uint64(rand.Intn(1000000000)))
+	}
+	for i := 0; i < m; i++ {
+		sk.Z = append(sk.Z, uint16(1 + rand.Intn(q - 1)))
 	}
 	return sk
 }
@@ -151,10 +154,12 @@ func GenDictionary(sk *base.Privkey, m int, n int, p int) *base.Dictionary {
 	q := sk.Q
 	dict := new(base.Dictionary)
 	dict.Dims = make([]uint16, 3)
-	dict.Dims[0] = uint16(n * 2 + 6)
+	dict.Dims[0] = uint16(n * 2 + 7)
 	dict.Dims[1] = uint16(p)
 	dict.Dims[2] = uint16(p)
 	dict.G = make([][][]uint16, dict.Dims[0])
+	dict.G0 = make([][]uint16, p)
+	dict.G1 = make([][]uint16, p)
 	dict.CS = make([]base.Cipher, 0)
 	for i := 0; i < m; i++ {
 		for j := 0; j < m; j++ {
@@ -182,6 +187,8 @@ func GenDictionary(sk *base.Privkey, m int, n int, p int) *base.Dictionary {
 	}
 	var x, y uint16
 	for x = 0; x < uint16(p); x++ {
+		dict.G0[x] = make([]uint16, p)
+		dict.G1[x] = make([]uint16, p)
 		for y = 0; y < uint16(p); y++ {
 			// Add Part
 			g1 := base.MultiDivideGF(base.GetHashF(x, keys[0], q), base.GetHashF(y, keys[1], q), base.GetHashF(base.GetH(dict.CKey, x, y, 1, p), sk.KeyX[0], q), q)
@@ -210,42 +217,25 @@ func GenDictionary(sk *base.Privkey, m int, n int, p int) *base.Dictionary {
 			dict.G[n * 2 + 3][x][y] = base.MultiDivideGF(g6, base.GetHashF(base.GetH(dict.CKey, x, y, uint16(2 * n + 2), p), keys[0], q), base.GetHashF(base.GetH(dict.CKey, x, y, uint16(2 * n + 2), p), keys[2 * n + 2], q), q)
 			g7 := base.MultiGF(base.GetHashF(x, keys[2 * n + 2], q), base.GetHashF(y, keys[2 * n + 2], q), q)
 			dict.G[n * 2 + 4][x][y] = base.MultiDivideGF(g7, base.GetHashF(x, keys[0], q), base.GetHashF(base.GetH(dict.CKey, x, y, uint16(2 * n + 4), p), sk.KeyX[n - 1], q), q)
-		}
-	}
-	// Mirrkey
-	dict.MKeyX = make([]uint64, 0)
-	dict.Z = make([]uint16, 0)
-	dict.Ei = make([][]uint16, n)
-	dict.Er = make([][]uint16, p)
-	dict.Ez = make([]uint16, m)
-	for i := 0; i < n; i++ {
-		dict.MKeyX = append(dict.MKeyX, uint64(rand.Intn(1000000000)))
-	}
-	for i := 0; i < m; i++ {
-		dict.Z = append(dict.Z, uint16(1 + rand.Intn(int(q) - 1)))
-	}
-	keyR1 := uint64(rand.Intn(1000000000))
-	for i := 0; i < n; i++ {
-		ri := uint16(1 + rand.Intn(int(q) - 1))
-		dict.Ei[i] = make([]uint16, 0)
-		for j := 0; j < p; j++ {
-			rij := ri
-			if(i == 0) {
-				rij = base.GetHashF(uint16(j), keyR1, uint16(q))
+			// Trans Part
+			g8 := base.DivideGF(base.GetHashF(x, keys[0], q), base.GetHashF(y, keys[0], q), q)
+			g81 := base.AddGF(base.GetHashF(x, sk.KeyX[0], q), base.GetHashF(x, sk.KeyX[n - 1], q), q)
+			g82 := base.MultiGF(base.GetHashF(x, sk.KeyX[0], q), base.GetHashF(x, sk.KeyX[n - 1], q), q)
+			dict.G[n * 2 + 5][x][y] = base.DivideGF(g8, g81, q)
+			dict.G[n * 2 + 6][x][y] = base.DivideGF(g8, g82, q)
+
+			g91 := base.AddGF(base.GetHashF(y, sk.KeyX[0], q), base.GetHashF(y, sk.KeyX[n - 1], q), q)
+			g92 := base.MultiGF(base.GetHashF(y, sk.KeyX[0], q), base.GetHashF(y, sk.KeyX[n - 1], q), q)
+			if x == uint16(p) - 2 {
+				dict.G0[x][y] = base.MultiDivideGF(g91, base.GetHashF(x, sk.KeyX[0], q), base.GetHashF(x + 1, sk.KeyX[0], q), q)
+				dict.G1[x][y] = base.MultiDivideGF(g92, base.GetHashF(x, sk.KeyX[0], q), base.GetHashF(0, sk.KeyX[0], q), q)
+			} else if x == uint16(p) - 1 {
+				dict.G0[x][y] = base.MultiDivideGF(g91, base.GetHashF(x, sk.KeyX[0], q), base.GetHashF(0, sk.KeyX[0], q), q)
+				dict.G1[x][y] = base.MultiDivideGF(g92, base.GetHashF(x, sk.KeyX[0], q), base.GetHashF(1, sk.KeyX[0], q), q)
+			} else {
+				dict.G0[x][y] = base.MultiDivideGF(g91, base.GetHashF(x, sk.KeyX[0], q), base.GetHashF(x + 1, sk.KeyX[0], q), q)
+				dict.G1[x][y] = base.MultiDivideGF(g92, base.GetHashF(x, sk.KeyX[0], q), base.GetHashF(x + 2, sk.KeyX[0], q), q)
 			}
-			fij := base.GetHashF(uint16(j), sk.KeyX[i], uint16(q))
-			fijp := base.GetHashF(uint16(j), dict.MKeyX[i], uint16(q))
-			dict.Ei[i] = append(dict.Ei[i], base.MultiDivideGF(rij, fij, fijp, uint16(q)))
-		}
-	}
-	rz := uint16(1 + rand.Intn(int(q) - 1))
-	for i := 0; i < m; i++ {
-		dict.Ez[i] = base.MultiDivideGF(rz, sk.Z[i], dict.Z[i], uint16(q))
-	}
-	for i := 0; i < p; i++ {
-		dict.Er[i] = make([]uint16, p)
-		for j := 0; j < p; j++ {
-			dict.Er[i][j] = base.DivideGF(base.GetHashF(uint16(i), keyR1, uint16(q)), base.GetHashF(uint16(j), keyR1, uint16(q)), uint16(q))
 		}
 	}
 	return dict
@@ -258,6 +248,8 @@ func GenDictionaryTransfer(sk1 *base.Privkey, sk2 *base.Privkey, m int, n int, p
 	dict.Dims[0] = uint16(m * m * n)
 	dict.Dims[1] = uint16(p)
 	dict.G = make([][]uint16, dict.Dims[0])
+	// dict.G0 = make([][]uint16, p)
+	// dict.G1 = make([][]uint16, p)
 	dict.ZS = make([]base.Cipher, m)
 	for i := 0; i < m; i++ {
 		dict.ZS[i] = *encdec.Encode(sk1.Z[i], sk2, p)
@@ -281,6 +273,61 @@ func GenDictionaryTransfer(sk1 *base.Privkey, sk2 *base.Privkey, m int, n int, p
 				}
 				ind++
 			}
+		}
+	}
+	// for i := uint16(0); i < uint16(p); i++ {
+	// 	dict.G0[i] = make([]uint16, p)
+	// 	dict.G1[i] = make([]uint16, p)
+	// 	for j := uint16(0); j < uint16(p); j++ {
+	// 		// dict.G0[i][j] = base.MultiDivideGF(base.GetHashF(i, sk2.KeyX[0], q), base.GetHashF(j, sk2.KeyX[0], q), base.GetHashF(base.GetHTK(tk.Key, i, j, 0, p), sk2.KeyX[0], q), q)
+	// 		g1 := base.AddGF(base.GetHashF(j, sk2.KeyX[0], q), base.GetHashF(j, sk2.KeyX[n - 1], q), q)
+	// 		g2 := base.MultiGF(base.GetHashF(j, sk2.KeyX[0], q), base.GetHashF(j, sk2.KeyX[n - 1], q), q)
+	// 		if i == uint16(p) - 2 {
+	// 			dict.G0[i][j] = base.MultiDivideGF(g1, base.GetHashF(i, sk2.KeyX[0], q), base.GetHashF(i + 1, sk2.KeyX[0], q), q)
+	// 			dict.G1[i][j] = base.MultiDivideGF(g2, base.GetHashF(i, sk2.KeyX[0], q), base.GetHashF(0, sk2.KeyX[0], q), q)
+	// 		} else if i == uint16(p) - 1 {
+	// 			dict.G0[i][j] = base.MultiDivideGF(g1, base.GetHashF(i, sk2.KeyX[0], q), base.GetHashF(0, sk2.KeyX[0], q), q)
+	// 			dict.G1[i][j] = base.MultiDivideGF(g2, base.GetHashF(i, sk2.KeyX[0], q), base.GetHashF(1, sk2.KeyX[0], q), q)
+	// 		} else {
+	// 			dict.G0[i][j] = base.MultiDivideGF(g1, base.GetHashF(i, sk2.KeyX[0], q), base.GetHashF(i + 1, sk2.KeyX[0], q), q)
+	// 			dict.G1[i][j] = base.MultiDivideGF(g2, base.GetHashF(i, sk2.KeyX[0], q), base.GetHashF(i + 2, sk2.KeyX[0], q), q)
+	// 		}
+	// 	}
+	// }
+	// Mirrkey
+	dict.MKeyX = make([]uint64, 0)
+	dict.Z = make([]uint16, 0)
+	dict.Ei = make([][]uint16, n)
+	dict.Er = make([][]uint16, p)
+	dict.Ez = make([]uint16, m)
+	for i := 0; i < n; i++ {
+		dict.MKeyX = append(dict.MKeyX, uint64(rand.Intn(1000000000)))
+	}
+	for i := 0; i < m; i++ {
+		dict.Z = append(dict.Z, uint16(1 + rand.Intn(int(q) - 1)))
+	}
+	keyR1 := uint64(rand.Intn(1000000000))
+	for i := 0; i < n; i++ {
+		ri := uint16(1 + rand.Intn(int(q) - 1))
+		dict.Ei[i] = make([]uint16, 0)
+		for j := 0; j < p; j++ {
+			rij := ri
+			if(i == 0) {
+				rij = base.GetHashF(uint16(j), keyR1, uint16(q))
+			}
+			fij := base.GetHashF(uint16(j), sk2.KeyX[i], uint16(q))
+			fijp := base.GetHashF(uint16(j), dict.MKeyX[i], uint16(q))
+			dict.Ei[i] = append(dict.Ei[i], base.MultiDivideGF(rij, fij, fijp, uint16(q)))
+		}
+	}
+	rz := uint16(1 + rand.Intn(int(q) - 1))
+	for i := 0; i < m; i++ {
+		dict.Ez[i] = base.MultiDivideGF(rz, sk2.Z[i], dict.Z[i], uint16(q))
+	}
+	for i := 0; i < p; i++ {
+		dict.Er[i] = make([]uint16, p)
+		for j := 0; j < p; j++ {
+			dict.Er[i][j] = base.DivideGF(base.GetHashF(uint16(i), keyR1, uint16(q)), base.GetHashF(uint16(j), keyR1, uint16(q)), uint16(q))
 		}
 	}
 	return dict

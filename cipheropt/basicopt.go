@@ -90,6 +90,98 @@ func AddCipherPart(p1 *base.CipherPart, p2 *base.CipherPart, dict *base.Dictiona
 	return res
 }
 
+func AddCipherPartTarget(p1 *base.CipherPart, p2 *base.CipherPart, dict *base.Dictionary, q int, p int, pt *base.CipherPart) *base.CipherPart {
+	res := new(base.CipherPart)
+	n := len(p1.X)
+	res.A = 0
+	res.X = make([]uint16, n)
+	for i := 0; i < n; i++ {
+		res.X[i] = pt.X[i]
+	}
+	a1 := p1.A
+	a2 := p2.A
+	// x11p2 := (p1.X[0] + p1.X[1] + p2.X[0] + p2.X[1] - pt.X[0] + 2 * dict.CKey[n] - 2 * dict.CKey[1] + dict.CKey[n + 1]) % uint16(p)
+	// if x11p2 < 0 {
+	// 	x11p2 += uint16(p)
+	// }
+	x11p2 := p1.X[0] + p1.X[1] + p2.X[0] + p2.X[1] + 2 * dict.CKey[n] + dict.CKey[n + 1]
+	if x11p2 >= 2 * dict.CKey[1] + pt.X[0] {
+		x11p2 = (x11p2 - 2 * dict.CKey[1] - pt.X[0]) % uint16(p)
+	} else if x11p2 + uint16(p) >= 2 * dict.CKey[1] + pt.X[0] {
+		x11p2 = (x11p2 + uint16(p) - 2 * dict.CKey[1] - pt.X[0]) % uint16(p)
+	} else {
+		x11p2 = (x11p2 + uint16(2 * p) - 2 * dict.CKey[1] - pt.X[0]) % uint16(p)
+	}
+	// if x11p2 > pt.X[0] {
+	// 	x11p2 = (x11p2 - pt.X[0]) % uint16(p)
+	// } else {
+	// 	x11p2 = (x11p2 + uint16(p) - pt.X[0]) % uint16(p)
+	// }
+	x11p := uint16(x11p2 / 2) + 1
+	res1 := SplitF(dict.CKey, 0, p1.X[0], x11p, dict, uint16(q), p)
+	x21p := res1[0]
+	a1 = base.MultiGF(a1, res1[1], uint16(q))
+	res2 := SplitF(dict.CKey, 0, p2.X[0], x11p, dict, uint16(q), p)
+	x22p := res2[0]
+	a2 = base.MultiGF(a2, res2[1], uint16(q))
+
+	a1 = base.MultiGF(a1, dict.G[n - 1][x21p][p1.X[n - 1]], uint16(q))
+	x21p = base.GetH(dict.CKey, x21p, p1.X[n - 1], uint16(n), p)
+	a2 = base.MultiGF(a2, dict.G[n - 1][x22p][p2.X[n - 1]], uint16(q))
+	x22p = base.GetH(dict.CKey, x22p, p2.X[n - 1], uint16(n), p)
+
+	gd := dict.G[n][x21p][x22p]
+	xd1 := x22p
+	xd2 := base.GetH(dict.CKey, x21p, x22p, uint16(n + 1), p)
+
+	// a2t := uint16(a2) - uint16(a1)
+	// if(a2t < 0) {
+	// 	a2 = uint16(a2t + uint16(q))
+	// } else {
+	// 	a2 = uint16(a2t)
+	// }
+	if a2 < a1 {
+		a2 = a2 + uint16(q) - a1
+	} else {
+		a2 = a2 - a1
+	}
+	a1 = base.MultiGF(a1, gd, uint16(q))
+
+	res3 := SplitF2(dict.CKey, n + 1, x11p, xd2, dict, uint16(q), p)
+	// x11pg := res.X[1] - res3[0]
+	// if x11pg < 0 {
+	// 	x11pg += uint16(p)
+	// }
+	x11pg := res.X[1] - res3[0]
+	if res.X[1] < res3[0] {
+		x11pg = res.X[1] + uint16(p) - res3[0]
+	}
+	x11pf := base.AddGF(x11p, x11pg, uint16(p))
+	a4 := uint16(1)
+	if x11p2 % 2 != 0 {
+		a4 = dict.G[n * 2 + 5][x11p][x11pf]
+	} else {
+		a4 = dict.G[n * 2 + 6][x11p][x11pf]
+	}
+	res3 = SplitF2(dict.CKey, n + 1, x11pf, xd2, dict, uint16(q), p)
+	a3 := res3[1]
+	a3 = base.MultiGF(a3, a4, uint16(q))
+
+	a1 = base.MultiGF(a1, dict.G[n + 2][xd1][xd2], uint16(q))
+	a2 = base.MultiGF(a2, dict.G[n + 3][xd1][xd2], uint16(q))
+
+	a3 = base.MultiGF(a3, base.AddGF(a1, a2, uint16(q)), uint16(q))
+	if x11p2 % 2 != 0 {
+		a5 := dict.G0[xd2][x11p]
+		a3 = base.MultiGF(a3, a5, uint16(q))
+	} else {
+		a5 := dict.G1[xd2][x11p]
+		a3 = base.MultiGF(a3, a5, uint16(q))
+	}
+	res.A = a3
+	return res
+}
+
 func MultiplyCipher(c1 *base.Cipher, c2 *base.Cipher, dict *base.Dictionary, q uint16, p int) *base.Cipher {
 	res := new(base.Cipher)
 	m := len(c1.A)
@@ -222,8 +314,51 @@ func Transfer(cipher *base.Cipher, tran *base.DictionaryTransfer, dict *base.Dic
 	return res
 }
 
-func EqualZero(cipher *base.Cipher, dict *base.Dictionary) uint16 {
+func TransferFixed(cipher *base.Cipher, tran *base.DictionaryTransfer, dict *base.Dictionary, p int, cipherT *base.Cipher) *base.Cipher {
+	res := new(base.Cipher)
 	q := dict.Q
+	m := len(cipher.A)
+	n := len(cipher.X[0])
+	res.GenRandZero(m, n, int(q), p)
+
+	res2 := new(base.Cipher)
+	res2.IntRandFromCZero2(m, n, int(q), p, cipherT)
+
+	for i := 0; i < m; i++ {
+		// cpi := new(base.CipherPart)
+		cpi := res.GetCipherPart(i)
+		cpt := res2.GetCipherPart(i)
+		// cpi.PrintCipher()
+		// cpi.A = 0
+		for j := 0; j < m; j++ {
+			cpj := cipher.GetCipherPart(j)
+			// cpj.PrintCipher()
+			aj := cpj.A
+			cpjz := tran.ZS[j].GetCipherPart(i)
+			ajz := cpjz.A
+			for k := 0; k < n; k++ {
+				xjk := cpj.X[k]
+				g := tran.G[i * m * n + j * n + k][xjk]
+				yk := cpjz.X[k]
+				cpjz.X[k] = base.GetHT(tran.TKey, xjk, yk, k, p)
+				// fmt.Printf("%d, ", cpjz.X[k])
+				ajz = base.MultiGF(ajz, g, q)
+			}
+			cpjz.A = base.MultiGF(aj, ajz, q)
+			if j == 0 {
+				cpi = cpjz
+			} else {
+				cpi = AddCipherPartTarget(cpi, cpjz, dict, int(q), p, cpt)
+			}			
+		}
+		res.SetCipherPart(i, cpi)
+	}
+	return res
+}
+
+func EqualZero(cipher *base.Cipher, dict *base.DictionaryTransfer) uint16 {
+	q := dict.Q
+	// fmt.Println(q)
 	m := len(dict.Z)
 	n := len(dict.MKeyX)
 	var x, b, c uint16

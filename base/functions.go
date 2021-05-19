@@ -141,8 +141,8 @@ func bytesToUint8SM3(buf []byte, q uint16) uint16 {
 
 func Uint16ToBytes(n uint16) []byte {
    return []byte{
-      byte(n % 16),
-      byte(n / 16),
+      byte(n % 256),
+      byte(n / 256),
    }
 }
 

@@ -29,7 +29,7 @@ type JsonResult  struct{
 }
 
 func genSKFpart(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
+    if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "invalid_http_method")
 		return
@@ -37,15 +37,15 @@ func genSKFpart(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type","text/json");
     jsonResult := JsonResult {IsSuccess: true, Result: "", Log: ""};
     seed := time.Now().UnixNano();
-    seedStr := r.PostFormValue("seed");
-    filename := r.PostFormValue("filename");
+    seedStr := r.URL.Query().Get("seed");
+    filename := r.URL.Query().Get("filename");
     if seedStr != "" {
         seed, _ = strconv.ParseInt(seedStr, 10, 64)
     }
     if filename == "" {
         filename = uuid.NewV4().String() + ".skf";
     }
-    lib.GenSKFpart(seed, n, q, filedir + "/" + filename);
+    lib.GenSKFpart(seed, n, m, q, filedir + "/" + filename);
     fmt.Println(filename);
     jsonResult.IsSuccess = true;
     jsonResult.Result = "/getFile?filename=" + filename;
@@ -58,7 +58,7 @@ func genSKFpart(w http.ResponseWriter, r *http.Request) {
 }
 
 func genSKZpart(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
+    if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "invalid_http_method")
 		return
@@ -66,9 +66,9 @@ func genSKZpart(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type","text/json");
     jsonResult := JsonResult {IsSuccess: true, Result: "", Log: ""};
     seed := time.Now().UnixNano();
-    seedStr := r.PostFormValue("seed");
-    hashstr := r.PostFormValue("hashstr");
-    filename := r.PostFormValue("filename");
+    seedStr := r.URL.Query().Get("seed");
+    hashstr := r.URL.Query().Get("hashstr");
+    filename := r.URL.Query().Get("filename");
     if hashstr == "" {
         jsonResult.IsSuccess = false;
         jsonResult.Log = "hashstr can't be null";
@@ -93,16 +93,16 @@ func genSKZpart(w http.ResponseWriter, r *http.Request) {
 }
 
 func composeSK(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
+    if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "invalid_http_method")
 		return
 	}
     w.Header().Set("Content-Type","text/json");
     jsonResult := JsonResult {IsSuccess: true, Result: "", Log: ""};
-    fpart := r.PostFormValue("fpart");
-    zpart := r.PostFormValue("zpart");
-    filename := r.PostFormValue("filename");
+    fpart := r.URL.Query().Get("fpart");
+    zpart := r.URL.Query().Get("zpart");
+    filename := r.URL.Query().Get("filename");
     if fpart == "" {
         jsonResult.IsSuccess = false;
         jsonResult.Log = "fpart can't be null";
@@ -127,7 +127,7 @@ func composeSK(w http.ResponseWriter, r *http.Request) {
 }
 
 func genSK(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
+    if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "invalid_http_method")
 		return
@@ -135,8 +135,8 @@ func genSK(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type","text/json");
     jsonResult := JsonResult {IsSuccess: true, Result: "", Log: ""};
     seed := time.Now().UnixNano();
-    seedStr := r.PostFormValue("seed");
-    filename := r.PostFormValue("filename");
+    seedStr := r.URL.Query().Get("seed");
+    filename := r.URL.Query().Get("filename");
     if seedStr != "" {
         seed, _ = strconv.ParseInt(seedStr, 10, 64)
     }
@@ -155,51 +155,16 @@ func genSK(w http.ResponseWriter, r *http.Request) {
     w.Write(jsonResultStr);
 }
 
-func genPK(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		fmt.Fprintf(w, "invalid_http_method")
-		return
-	}
-    w.Header().Set("Content-Type","text/json");
-    jsonResult := JsonResult {IsSuccess: true, Result: "", Log: ""};
-    skfile := r.PostFormValue("sk");
-    seed := time.Now().UnixNano();
-    seedStr := r.PostFormValue("seed");
-    filename := r.PostFormValue("filename");
-    if skfile == "" {
-        jsonResult.IsSuccess = false;
-        jsonResult.Log = "sk can't be null";
-    } else {
-        if seedStr != "" {
-            seed, _ = strconv.ParseInt(seedStr, 10, 64)
-        }
-        if filename == "" {
-            filename = uuid.NewV4().String() + ".pck";
-        }
-        lib.GenPK(seed, filedir + "/" + skfile, p, filedir + "/" + filename);
-        fmt.Println(filename);
-        jsonResult.IsSuccess = true;
-        jsonResult.Result = "/getFile?filename=" + filename;
-    }
-    jsonResultStr, err := json.Marshal(jsonResult)
-    if err != nil {
-		fmt.Println("json.marshal failed, err:", err);
-		return;
-	}
-    w.Write(jsonResultStr);
-}
-
 func genDictionary(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
+    if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "invalid_http_method")
 		return
 	}
     w.Header().Set("Content-Type","text/json");
     jsonResult := JsonResult {IsSuccess: true, Result: "", Log: ""};
-    skfile := r.PostFormValue("sk");
-    filename := r.PostFormValue("filename");
+    skfile := r.URL.Query().Get("fpart");
+    filename := r.URL.Query().Get("filename");
     if skfile == "" {
         jsonResult.IsSuccess = false;
         jsonResult.Log = "sk can't be null";
@@ -221,16 +186,16 @@ func genDictionary(w http.ResponseWriter, r *http.Request) {
 }
 
 func genTransferDictSS(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
+    if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		fmt.Fprintf(w, "invalid_http_method")
 		return
 	}
     w.Header().Set("Content-Type","text/json");
     jsonResult := JsonResult {IsSuccess: true, Result: "", Log: ""};
-    sk_out := r.PostFormValue("sk_out");
-    sk_in := r.PostFormValue("sk_in");
-    filename := r.PostFormValue("filename");
+    sk_out := r.URL.Query().Get("sk_out");
+    sk_in := r.URL.Query().Get("sk_in");
+    filename := r.URL.Query().Get("filename");
     if sk_out == "" {
         jsonResult.IsSuccess = false;
         jsonResult.Log = "sk_out can't be null";
@@ -323,6 +288,24 @@ func decString(w http.ResponseWriter, r *http.Request) {
     w.Write(jsonResultStr);
 }
 
+func sm3(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed);
+		fmt.Fprintf(w, "invalid_http_method");
+		return;
+        }
+    w.Header().Set("Content_Type","text/json");
+    jsonResult := JsonResult {IsSuccess: true, Result: "", Log: ""};
+    str := r.PostFormValue("str");
+    res := lib.SM3(str);
+    jsonResult.Result = res;
+    jsonResultStr, err := json.Marshal(jsonResult);
+    if err != nil {
+                fmt.Println("json.marshal failed, err:", err);
+                return;
+        }
+    w.Write(jsonResultStr);
+}
 
 func tranSS(w http.ResponseWriter, r *http.Request) {
     if r.Method != http.MethodPost {
@@ -377,6 +360,7 @@ func equalString(w http.ResponseWriter, r *http.Request) {
     cipherStr1 := r.PostFormValue("cipher1");
     cipherStr2 := r.PostFormValue("cipher2");
     dict := r.PostFormValue("dict");
+    trandict := r.PostFormValue("trandict");
     if cipherStr1 == "" {
         jsonResult.IsSuccess = false;
         jsonResult.Log = "cipher1 can't be null";
@@ -386,6 +370,9 @@ func equalString(w http.ResponseWriter, r *http.Request) {
     } else if dict == "" {
         jsonResult.IsSuccess = false;
         jsonResult.Log = "dict can't be null";
+    } else if trandict == "" {
+	jsonResult.IsSuccess = false;
+	jsonResult.Log = "trandict can't be null";
     } else {
         cipher1, err1 := base64.StdEncoding.DecodeString(cipherStr1);
         cipher2, err2 := base64.StdEncoding.DecodeString(cipherStr2);
@@ -398,7 +385,7 @@ func equalString(w http.ResponseWriter, r *http.Request) {
             jsonResult.IsSuccess = false;
             jsonResult.Log = "cipher2 base64 decode error, check format";
         } else {
-            result := lib.EqualString(cipher1, cipher2, filedir + "/" + dict, p);
+            result := lib.EqualString(cipher1, cipher2, filedir + "/" + dict, filedir + "/" + trandict, p);
             fmt.Println(result);
             jsonResult.IsSuccess = true;
             jsonResult.Result = result;
@@ -415,7 +402,7 @@ func equalString(w http.ResponseWriter, r *http.Request) {
 func getFile(w http.ResponseWriter, r *http.Request) {
     filename := r.URL.Query()["filename"][0]
     if filename == "" {
-        w.Header().Set("Content-Type","text/json");
+        w.Header().Set("Content-Type","Mime-Type");
         jsonResult := JsonResult {IsSuccess: false, Result: "", Log: "filename can't be null"};
         jsonResultStr, _ := json.Marshal(jsonResult);
         w.Write(jsonResultStr);
@@ -479,12 +466,12 @@ func main() {
     http.HandleFunc("/km/genSKZpart", genSKZpart);
     http.HandleFunc("/km/composeSK", composeSK);
     http.HandleFunc("/km/genSK", genSK);
-    http.HandleFunc("/km/genPK", genPK);
     http.HandleFunc("/km/genDictionary", genDictionary);
     http.HandleFunc("/km/genTransferDictSS", genTransferDictSS);
 
     http.HandleFunc("/enc/encString", encString);
     http.HandleFunc("/enc/decString", decString);
+    http.HandleFunc("/enc/sm3", sm3);
 
     http.HandleFunc("/opt/tranSS", tranSS);
     http.HandleFunc("/opt/equalString", equalString);
